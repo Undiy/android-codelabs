@@ -18,17 +18,25 @@ package com.example.android.dagger
 
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onView
-import androidx.test.espresso.action.ViewActions.*
+import androidx.test.espresso.action.ViewActions.click
+import androidx.test.espresso.action.ViewActions.closeSoftKeyboard
+import androidx.test.espresso.action.ViewActions.typeText
 import androidx.test.espresso.assertion.ViewAssertions.matches
-import androidx.test.espresso.matcher.ViewMatchers.*
-import com.example.android.dagger.main.MainActivity
+import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
+import androidx.test.espresso.matcher.ViewMatchers.withId
+import androidx.test.espresso.matcher.ViewMatchers.withText
+import com.example.android.dagger.splash.SPLASH_DELAY_MILLIS
+import com.example.android.dagger.splash.SplashActivity
 import org.junit.Test
 
 class ApplicationTest {
 
     @Test
     fun runApp() {
-        ActivityScenario.launch(MainActivity::class.java)
+        ActivityScenario.launch(SplashActivity::class.java)
+        onView(withText("Loading")).check(matches(isDisplayed()))
+
+        Thread.sleep(SPLASH_DELAY_MILLIS);
 
         // Should be in Registration/EnterDetails because the user is not registered
         onView(withText("Register to Dagger World!")).check(matches(isDisplayed()))
