@@ -50,4 +50,5 @@ ext {
     rulesVersion = '1.4.0'
     junitVersion = '4.13.2'
     espressoVersion = '3.4.0'
+    protobufVersion = '3.19.4'
 }
