@@ -37,6 +37,7 @@ import com.google.ar.core.AugmentedImageDatabase;
 import com.google.ar.core.Camera;
 import com.google.ar.core.Config;
 import com.google.ar.core.Frame;
+import com.google.ar.core.Pose;
 import com.google.ar.core.Session;
 import com.google.ar.core.examples.java.augmentedimage.rendering.AugmentedImageRenderer;
 import com.google.ar.core.examples.java.common.helpers.CameraPermissionHelper;
@@ -95,6 +96,9 @@ public class AugmentedImageActivity extends AppCompatActivity implements GLSurfa
   // the
   // database.
   private final Map<Integer, Pair<AugmentedImage, Anchor>> augmentedImageMap = new HashMap<>();
+
+  // Declare the PhysicsController object
+  private PhysicsController physicsController;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -327,20 +331,36 @@ public class AugmentedImageActivity extends AppCompatActivity implements GLSurfa
           break;
 
         case TRACKING:
-          // Have to switch to UI Thread to update View.
+          // Switch to UI Thread to update View
           this.runOnUiThread(
-              new Runnable() {
-                @Override
-                public void run() {
-                  fitToScanView.setVisibility(View.GONE);
-                }
-              });
+                  new Runnable() {
+                    @Override
+                    public void run() {
+                      fitToScanView.setVisibility(View.GONE);
+                    }
+                  });
 
-          // Create a new anchor for newly found images.
+          // Create a new anchor for newly found images
           if (!augmentedImageMap.containsKey(augmentedImage.getIndex())) {
             Anchor centerPoseAnchor = augmentedImage.createAnchor(augmentedImage.getCenterPose());
             augmentedImageMap.put(
-                augmentedImage.getIndex(), Pair.create(augmentedImage, centerPoseAnchor));
+                    augmentedImage.getIndex(), Pair.create(augmentedImage, centerPoseAnchor));
+
+            physicsController = new PhysicsController(this);
+          } else {
+            Pose ballPose = physicsController.getBallPose();
+            augmentedImageRenderer.updateAndyPose(ballPose);
+
+
+            // Use real world gravity, (0, -10, 0), as gravity
+            // Convert to Physics world coordinate(maze mesh has to be static)
+            // Use the converted coordinate as a force to move the ball
+            Pose worldGravityPose = Pose.makeTranslation(0, -1f, 0);
+            Pose mazeGravityPose = augmentedImage.getCenterPose().inverse().compose(worldGravityPose);
+            float mazeGravity[] = mazeGravityPose.getTranslation();
+            physicsController.applyGravityToBall(mazeGravity);
+
+            physicsController.updatePhysics();
           }
           break;
 

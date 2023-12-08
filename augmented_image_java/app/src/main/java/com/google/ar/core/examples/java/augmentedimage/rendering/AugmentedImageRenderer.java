@@ -40,6 +40,9 @@ public class AugmentedImageRenderer {
   // Render for Andy
   private final ObjectRenderer andyRenderer = new ObjectRenderer();
 
+  // Create a new pose for the Andy
+  private Pose andyPose = Pose.IDENTITY;
+
   public AugmentedImageRenderer() {}
 
   public void createOnGlThread(Context context) throws IOException {
@@ -87,14 +90,21 @@ public class AugmentedImageRenderer {
     mazeRenderer.updateModelMatrix(modelMatrix, mazeScaleFactor, mazeScaleFactor/10.0f, mazeScaleFactor); // This line relies on a change in ObjectRenderer.updateModelMatrix later in this codelab.
     mazeRenderer.draw(viewMatrix, projectionMatrix, colorCorrectionRgba, tintColor);
 
-    // Render Andy, standing on top of the maze
-    Pose andyModelLocalOffset = Pose.makeTranslation(
-            0.0f,
-            0.1f,
-            0.0f);
-    anchorPose.compose(andyModelLocalOffset).toMatrix(modelMatrix, 0);
-    andyRenderer.updateModelMatrix(modelMatrix, 0.05f); // 0.05f is a Magic number to scale
+    // Adjust the Andy's rendering position
+    // The Andy's pose is at the maze's vertex's coordinate
+    Pose andyPoseInImageSpace = Pose.makeTranslation(
+            andyPose.tx() * mazeScaleFactor,
+            andyPose.ty() * mazeScaleFactor,
+            andyPose.tz() * mazeScaleFactor);
+
+    anchorPose.compose(andyPoseInImageSpace).toMatrix(modelMatrix, 0);
+    andyRenderer.updateModelMatrix(modelMatrix, 0.05f);
     andyRenderer.draw(viewMatrix, projectionMatrix, colorCorrectionRgba, tintColor);
+  }
+
+  // Receive Andy pose updates
+  public void updateAndyPose(Pose pose) {
+    andyPose = pose;
   }
 
   private static float[] convertHexToColor(int colorHex) {

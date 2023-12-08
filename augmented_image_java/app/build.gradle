@@ -54,4 +54,7 @@ dependencies {
 
     implementation 'androidx.appcompat:appcompat:1.1.0'
     implementation 'com.google.android.material:material:1.1.0'
+
+    // jbullet library
+    implementation 'cz.advel.jbullet:jbullet:20101010-1'
 }
