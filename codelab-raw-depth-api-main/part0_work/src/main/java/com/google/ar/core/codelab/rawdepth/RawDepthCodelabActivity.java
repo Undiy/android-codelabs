@@ -35,9 +35,11 @@ import com.google.ar.core.Pose;
 import com.google.ar.core.Session;
 import com.google.ar.core.Trackable;
 import com.google.ar.core.TrackingState;
+import com.google.ar.core.codelab.common.helpers.AABB;
 import com.google.ar.core.codelab.common.helpers.CameraPermissionHelper;
 import com.google.ar.core.codelab.common.helpers.DisplayRotationHelper;
 import com.google.ar.core.codelab.common.helpers.FullScreenHelper;
+import com.google.ar.core.codelab.common.helpers.PointClusteringHelper;
 import com.google.ar.core.codelab.common.helpers.SnackbarHelper;
 import com.google.ar.core.codelab.common.helpers.TrackingStateHelper;
 import com.google.ar.core.codelab.common.rendering.BackgroundRenderer;
@@ -50,6 +52,9 @@ import com.google.ar.core.exceptions.UnavailableSdkTooOldException;
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException;
 import java.io.IOException;
 import java.nio.FloatBuffer;
+import java.util.List;
+
+import com.google.ar.core.codelab.common.rendering.BoxRenderer;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
@@ -73,6 +78,8 @@ public class RawDepthCodelabActivity extends AppCompatActivity implements GLSurf
   private final BackgroundRenderer backgroundRenderer = new BackgroundRenderer();
 
   private final DepthRenderer depthRenderer = new DepthRenderer();
+
+  private final BoxRenderer boxRenderer = new BoxRenderer();
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -210,6 +217,8 @@ public class RawDepthCodelabActivity extends AppCompatActivity implements GLSurf
       backgroundRenderer.createOnGlThread(/*context=*/ this);
 
       depthRenderer.createOnGlThread(/*context=*/ this);
+
+      boxRenderer.createOnGlThread(/*context=*/this);
     } catch (IOException e) {
       Log.e(TAG, "Failed to read an asset file", e);
     }
@@ -261,6 +270,13 @@ public class RawDepthCodelabActivity extends AppCompatActivity implements GLSurf
       // Visualize depth points.
       depthRenderer.update(points);
       depthRenderer.draw(camera);
+
+      // Draw boxes around clusters of points.
+      PointClusteringHelper clusteringHelper = new PointClusteringHelper(points);
+      List<AABB> clusters = clusteringHelper.findClusters();
+      for (AABB aabb : clusters) {
+        boxRenderer.draw(aabb, camera);
+      }
 
       // If not tracking, show tracking failure reason instead.
       if (camera.getTrackingState() == TrackingState.PAUSED) {
