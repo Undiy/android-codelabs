@@ -44,6 +44,10 @@ public class BackgroundRenderer {
   private static final int TEXCOORDS_PER_VERTEX = 2;
   private static final int FLOAT_SIZE = 4;
 
+  private static final float MAX_DEPTH_RANGE_TO_RENDER_MM = 20000.0f;
+  private float depthRangeToRenderMm = 0.0f;
+  private int depthRangeToRenderMmParam;
+
   private FloatBuffer quadCoords;
   private FloatBuffer quadTexCoords;
 
@@ -138,6 +142,8 @@ public class BackgroundRenderer {
 
     depthQuadPositionParam = GLES20.glGetAttribLocation(depthProgram, "a_Position");
     depthQuadTexCoordParam = GLES20.glGetAttribLocation(depthProgram, "a_TexCoord");
+
+    depthRangeToRenderMmParam = GLES20.glGetUniformLocation(depthProgram, "u_DepthRangeToRenderMm");
 
     this.depthTextureId = depthTextureId;
   }
@@ -269,6 +275,20 @@ public class BackgroundRenderer {
     GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
     GLES20.glDisableVertexAttribArray(depthQuadPositionParam);
     GLES20.glDisableVertexAttribArray(depthQuadTexCoordParam);
+
+    // Enables alpha blending.
+    GLES20.glEnable(GLES20.GL_BLEND);
+    GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+
+    // Updates range each time draw() is called.
+    depthRangeToRenderMm += 50.0f;
+    if (depthRangeToRenderMm > MAX_DEPTH_RANGE_TO_RENDER_MM) {
+      depthRangeToRenderMm = 0.0f;
+    }
+
+    // Passes latest value to the shader.
+    GLES20.glUniform1f(depthRangeToRenderMmParam, depthRangeToRenderMm);
+
 
     // Restore the depth state for further drawing.
     GLES20.glDepthMask(true);
