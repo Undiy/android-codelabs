@@ -37,6 +37,9 @@ public class AugmentedImageRenderer {
   // Add a member variable to hold the maze model.
   private final ObjectRenderer mazeRenderer = new ObjectRenderer();
 
+  // Render for Andy
+  private final ObjectRenderer andyRenderer = new ObjectRenderer();
+
   public AugmentedImageRenderer() {}
 
   public void createOnGlThread(Context context) throws IOException {
@@ -44,6 +47,12 @@ public class AugmentedImageRenderer {
     mazeRenderer.createOnGlThread(
             context, "models/green-maze/GreenMaze.obj", "models/frame_base.png");
     mazeRenderer.setMaterialProperties(0.0f, 3.5f, 1.0f, 6.0f);
+
+    // Initialize andyRenderer
+    andyRenderer.createOnGlThread(
+            context, "models/andy.obj", "models/andy.png");
+    andyRenderer.setMaterialProperties(0.0f, 3.5f, 1.0f, 6.0f);
+
 
   }
 
@@ -77,6 +86,15 @@ public class AugmentedImageRenderer {
     anchorPose.compose(mazeModelLocalOffset).toMatrix(modelMatrix, 0);
     mazeRenderer.updateModelMatrix(modelMatrix, mazeScaleFactor, mazeScaleFactor/10.0f, mazeScaleFactor); // This line relies on a change in ObjectRenderer.updateModelMatrix later in this codelab.
     mazeRenderer.draw(viewMatrix, projectionMatrix, colorCorrectionRgba, tintColor);
+
+    // Render Andy, standing on top of the maze
+    Pose andyModelLocalOffset = Pose.makeTranslation(
+            0.0f,
+            0.1f,
+            0.0f);
+    anchorPose.compose(andyModelLocalOffset).toMatrix(modelMatrix, 0);
+    andyRenderer.updateModelMatrix(modelMatrix, 0.05f); // 0.05f is a Magic number to scale
+    andyRenderer.draw(viewMatrix, projectionMatrix, colorCorrectionRgba, tintColor);
   }
 
   private static float[] convertHexToColor(int colorHex) {
