@@ -255,6 +255,9 @@ public class RawDepthCodelabActivity extends AppCompatActivity implements GLSurf
         messageSnackbarHelper.hide(this);
       }
 
+      // Filter the depth data.
+      DepthData.filterUsingPlanes(points, session.getAllTrackables(Plane.class));
+
       // Visualize depth points.
       depthRenderer.update(points);
       depthRenderer.draw(camera);

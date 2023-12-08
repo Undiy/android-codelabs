@@ -6,12 +6,16 @@ import android.opengl.Matrix;
 import com.google.ar.core.Anchor;
 import com.google.ar.core.CameraIntrinsics;
 import com.google.ar.core.Frame;
+import com.google.ar.core.Plane;
+import com.google.ar.core.Pose;
+import com.google.ar.core.TrackingState;
 import com.google.ar.core.exceptions.NotYetAvailableException;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
+import java.util.Collection;
 
 
 /**
@@ -115,6 +119,11 @@ public class DepthData {
                                         + x * confidenceImagePlane.getPixelStride());
                 final float confidenceNormalized = ((float) (confidencePixelValue & 0xff)) / 255.0f;
 
+                if (confidenceNormalized < 0.3 || depthMeters > 1.5) {
+                    // Ignore "low-confidence" pixels or depth that is too far away.
+                    continue;
+                }
+
                 // Unproject the depth into a 3D point in camera coordinates.
                 pointCamera[0] = depthMeters * (x - cx) / fx;
                 pointCamera[1] = depthMeters * (cy - y) / fy;
@@ -132,5 +141,48 @@ public class DepthData {
 
         points.rewind();
         return points;
+    }
+
+    public static void filterUsingPlanes(FloatBuffer points, Collection<Plane> allPlanes) {
+        float[] planeNormal = new float[3];
+
+        // Allocate the output buffer.
+        int numPoints = points.remaining() / DepthData.FLOATS_PER_POINT;
+
+        // Check each plane against each point.
+        for (Plane plane : allPlanes) {
+            if (plane.getTrackingState() != TrackingState.TRACKING || plane.getSubsumedBy() != null) {
+                continue;
+            }
+
+            // Compute the normal vector of the plane.
+            Pose planePose = plane.getCenterPose();
+            planePose.getTransformedAxis(1, 1.0f, planeNormal, 0);
+
+            // Filter points that are too close to the plane.
+            for (int index = 0; index < numPoints; ++index) {
+                // Retrieves the next point.
+                final float x = points.get(FLOATS_PER_POINT * index);
+                final float y = points.get(FLOATS_PER_POINT * index + 1);
+                final float z = points.get(FLOATS_PER_POINT * index + 2);
+
+                // Transform point to be in world coordinates, to match plane info.
+                float distance = (x - planePose.tx()) * planeNormal[0]
+                        + (y - planePose.ty()) * planeNormal[1]
+                        + (z - planePose.tz()) * planeNormal[2];
+                // Controls the size of objects detected.
+                // Smaller values mean smaller objects will be kept.
+                // Larger values will only allow detection of larger objects, but also helps reduce noise.
+                if (Math.abs(distance) > 0.03) {
+                    continue;  // Keep this point, since it's far enough away from the plane.
+                }
+
+                // Invalidate points that are too close to planar surfaces.
+                points.put(FLOATS_PER_POINT * index, 0);
+                points.put(FLOATS_PER_POINT * index + 1, 0);
+                points.put(FLOATS_PER_POINT * index + 2, 0);
+                points.put(FLOATS_PER_POINT * index + 3, 0);
+            }
+        }
     }
 }
