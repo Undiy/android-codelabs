@@ -22,7 +22,9 @@ import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.MotionEvent;
+import android.widget.Button;
 import android.widget.Toast;
+
 import com.google.ar.core.Anchor;
 import com.google.ar.core.ArCoreApk;
 import com.google.ar.core.Camera;
@@ -50,10 +52,13 @@ import com.google.ar.core.exceptions.UnavailableArcoreNotInstalledException;
 import com.google.ar.core.exceptions.UnavailableDeviceNotCompatibleException;
 import com.google.ar.core.exceptions.UnavailableSdkTooOldException;
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException;
+
 import java.io.IOException;
 import java.util.ArrayList;
+
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
+
 
 /**
  * This is a simple example that shows how to create an augmented reality (AR) application using the
@@ -92,12 +97,26 @@ public class DepthCodelabActivity extends AppCompatActivity implements GLSurface
 
   private final DepthTextureHandler depthTexture = new DepthTextureHandler();
 
+  private boolean showDepthMap = false;
+
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
     surfaceView = findViewById(R.id.surfaceview);
     displayRotationHelper = new DisplayRotationHelper(/*context=*/ this);
+
+    final Button toggleDepthButton = (Button) findViewById(R.id.toggle_depth_button);
+    toggleDepthButton.setOnClickListener(
+            view -> {
+              if (isDepthSupported) {
+                showDepthMap = !showDepthMap;
+                toggleDepthButton.setText(showDepthMap ? R.string.hide_depth : R.string.show_depth);
+              } else {
+                showDepthMap = false;
+                toggleDepthButton.setText(R.string.depth_not_available);
+              }
+            });
 
     // Set up tap listener.
     tapHelper = new TapHelper(/*context=*/ this);
@@ -229,6 +248,7 @@ public class DepthCodelabActivity extends AppCompatActivity implements GLSurface
 
       // Create the texture and pass it to ARCore session to be filled during update().
       backgroundRenderer.createOnGlThread(/*context=*/ this);
+      backgroundRenderer.createDepthShaders(/*context=*/ this, depthTexture.getDepthTexture());
 
       virtualObject.createOnGlThread(/*context=*/ this, "models/andy.obj", "models/andy.png");
       virtualObject.setMaterialProperties(0.0f, 2.0f, 0.5f, 6.0f);
@@ -274,6 +294,10 @@ public class DepthCodelabActivity extends AppCompatActivity implements GLSurface
 
       // If frame is ready, render camera preview image to the GL surface.
       backgroundRenderer.draw(frame);
+      if (showDepthMap) {
+        backgroundRenderer.drawDepth(frame);
+      }
+
 
       // Keep the screen unlocked while tracking, but allow it to lock when tracking stops.
       trackingStateHelper.updateKeepScreenOnFlag(camera.getTrackingState());
