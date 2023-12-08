@@ -90,6 +90,8 @@ public class DepthCodelabActivity extends AppCompatActivity implements GLSurface
 
   private boolean isDepthSupported;
 
+  private final DepthTextureHandler depthTexture = new DepthTextureHandler();
+
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
@@ -223,6 +225,8 @@ public class DepthCodelabActivity extends AppCompatActivity implements GLSurface
 
     // Prepare the rendering objects. This involves reading shaders, so may throw an IOException.
     try {
+      depthTexture.createOnGlThread();
+
       // Create the texture and pass it to ARCore session to be filled during update().
       backgroundRenderer.createOnGlThread(/*context=*/ this);
 
@@ -259,6 +263,11 @@ public class DepthCodelabActivity extends AppCompatActivity implements GLSurface
       // camera framerate.
       Frame frame = session.update();
       Camera camera = frame.getCamera();
+
+      // Retrieves the latest depth image for this frame.
+      if (isDepthSupported) {
+        depthTexture.update(frame);
+      }
 
       // Handle one tap per frame.
       handleTap(frame, camera);
