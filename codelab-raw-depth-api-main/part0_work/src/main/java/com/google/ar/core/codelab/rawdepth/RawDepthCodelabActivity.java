@@ -114,6 +114,12 @@ public class RawDepthCodelabActivity extends AppCompatActivity implements GLSurf
 
         // Creates the ARCore session.
         session = new Session(/* context= */ this);
+        if (!session.isDepthModeSupported(Config.DepthMode.RAW_DEPTH_ONLY)) {
+          message = "This device does not support the ARCore Raw Depth API. See" +
+                          "https://developers.google.com/ar/devices for" +
+                          "a list of devices that do.";
+        }
+
       } catch (UnavailableArcoreNotInstalledException
           | UnavailableUserDeclinedInstallationException e) {
         message = "Please install ARCore";
@@ -140,8 +146,14 @@ public class RawDepthCodelabActivity extends AppCompatActivity implements GLSurf
     }
 
     try {
-      session.resume();
-    } catch (CameraNotAvailableException e) {
+        // Enable raw depth estimation and auto focus mode while ARCore is running.
+        Config config = session.getConfig();
+        config.setDepthMode(Config.DepthMode.RAW_DEPTH_ONLY);
+        config.setFocusMode(Config.FocusMode.AUTO);
+        session.configure(config);
+
+        session.resume();
+      } catch (CameraNotAvailableException e) {
       messageSnackbarHelper.showError(this, "Camera not available. Try restarting the app.");
       session = null;
       return;
@@ -227,6 +239,17 @@ public class RawDepthCodelabActivity extends AppCompatActivity implements GLSurf
 
       // If frame is ready, render camera preview image to the GL surface.
       backgroundRenderer.draw(frame);
+
+      // Retrieve the depth data for this frame.
+      FloatBuffer points = DepthData.create(frame, session.createAnchor(camera.getPose()));
+      if (points == null) {
+        return;
+      }
+
+      if (messageSnackbarHelper.isShowing() && points != null) {
+        messageSnackbarHelper.hide(this);
+      }
+
 
       // If not tracking, show tracking failure reason instead.
       if (camera.getTrackingState() == TrackingState.PAUSED) {
