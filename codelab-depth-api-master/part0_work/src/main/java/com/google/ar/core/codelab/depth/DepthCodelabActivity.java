@@ -62,6 +62,8 @@ import javax.microedition.khronos.opengles.GL10;
 public class DepthCodelabActivity extends AppCompatActivity implements GLSurfaceView.Renderer {
   private static final String TAG = DepthCodelabActivity.class.getSimpleName();
 
+  private static final String DEPTH_NOT_AVAILABLE_MESSAGE = "[Depth not supported on this device]";
+
   // Rendering. The Renderers are created here, and initialized when the GL surface is created.
   private GLSurfaceView surfaceView;
 
@@ -85,6 +87,8 @@ public class DepthCodelabActivity extends AppCompatActivity implements GLSurface
   // Anchors created from taps used for object placing with a given color.
   private static final float[] OBJECT_COLOR = new float[] {139.0f, 195.0f, 74.0f, 255.0f};
   private final ArrayList<Anchor> anchors = new ArrayList<>();
+
+  private boolean isDepthSupported;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -133,6 +137,15 @@ public class DepthCodelabActivity extends AppCompatActivity implements GLSurface
 
         // Creates the ARCore session.
         session = new Session(/* context= */ this);
+
+        Config config = session.getConfig();
+        isDepthSupported = session.isDepthModeSupported(Config.DepthMode.AUTOMATIC);
+        if (isDepthSupported) {
+          config.setDepthMode(Config.DepthMode.AUTOMATIC);
+        } else {
+          config.setDepthMode(Config.DepthMode.DISABLED);
+        }
+        session.configure(config);
 
       } catch (UnavailableArcoreNotInstalledException
           | UnavailableUserDeclinedInstallationException e) {
@@ -284,6 +297,11 @@ public class DepthCodelabActivity extends AppCompatActivity implements GLSurface
       } else {
         messageToShow = SEARCHING_PLANE_MESSAGE;
       }
+
+      if (!isDepthSupported) {
+        messageToShow += "\n" + DEPTH_NOT_AVAILABLE_MESSAGE;
+      }
+
       messageSnackbarHelper.showMessage(this, messageToShow);
 
       // Visualize anchors created by touch.
