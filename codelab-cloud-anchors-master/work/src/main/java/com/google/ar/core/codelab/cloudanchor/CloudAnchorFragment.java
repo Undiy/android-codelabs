@@ -33,7 +33,9 @@ import androidx.fragment.app.Fragment;
 import com.google.ar.core.Anchor;
 import com.google.ar.core.ArCoreApk;
 import com.google.ar.core.Camera;
+import com.google.ar.core.Config;
 import com.google.ar.core.Frame;
+import com.google.ar.core.Future;
 import com.google.ar.core.HitResult;
 import com.google.ar.core.Plane;
 import com.google.ar.core.Point;
@@ -59,6 +61,7 @@ import com.google.ar.core.exceptions.UnavailableDeviceNotCompatibleException;
 import com.google.ar.core.exceptions.UnavailableSdkTooOldException;
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException;
 import java.io.IOException;
+
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
@@ -95,6 +98,9 @@ public class CloudAnchorFragment extends Fragment implements GLSurfaceView.Rende
 
   @Nullable
   private Anchor currentAnchor = null;
+
+  @Nullable
+  private Future future = null;
 
   @Override
   public void onAttach(@NonNull Context context) {
@@ -151,6 +157,12 @@ public class CloudAnchorFragment extends Fragment implements GLSurfaceView.Rende
 
         // Create the session.
         session = new Session(requireActivity());
+
+        // Configure the session.
+        Config config = new Config(session);
+        config.setCloudAnchorMode(Config.CloudAnchorMode.ENABLED);
+        session.configure(config);
+
 
       } catch (UnavailableArcoreNotInstalledException
           | UnavailableUserDeclinedInstallationException e) {
@@ -354,6 +366,9 @@ public class CloudAnchorFragment extends Fragment implements GLSurfaceView.Rende
           // space. This anchor is created on the Plane to place the 3D model
           // in the correct position relative both to the world and to the plane.
           currentAnchor = hit.createAnchor();
+
+          messageSnackbarHelper.showMessage(getActivity(), "Now hosting anchor...");
+          future = session.hostCloudAnchorAsync(currentAnchor, 300, this::onHostComplete);
           break;
         }
       }
@@ -378,5 +393,20 @@ public class CloudAnchorFragment extends Fragment implements GLSurfaceView.Rende
       currentAnchor.detach();
       currentAnchor = null;
     }
+
+    // Cancel any ongoing asynchronous operations.
+    if (future != null) {
+      future.cancel();
+      future = null;
+    }
   }
+
+  private void onHostComplete(String cloudAnchorId, Anchor.CloudAnchorState cloudState) {
+    if (cloudState == Anchor.CloudAnchorState.SUCCESS) {
+      messageSnackbarHelper.showMessage(getActivity(), "Cloud Anchor Hosted. ID: " + cloudAnchorId);
+    } else {
+      messageSnackbarHelper.showMessage(getActivity(), "Error while hosting: " + cloudState.toString());
+    }
+  }
+
 }

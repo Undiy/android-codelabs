@@ -24,7 +24,7 @@ android {
 
 dependencies {
     // ARCore Library
-    implementation 'com.google.ar:core:1.23.0'
+    implementation 'com.google.ar:core:1.41.0'
 
     implementation project(":helpers")
     implementation 'androidx.appcompat:appcompat:1.2.0'
