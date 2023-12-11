@@ -45,7 +45,9 @@ import com.google.ar.core.Session;
 import com.google.ar.core.Trackable;
 import com.google.ar.core.TrackingState;
 import com.google.ar.core.codelab.cloudanchor.helpers.CameraPermissionHelper;
+import com.google.ar.core.codelab.cloudanchor.helpers.ResolveDialogFragment;
 import com.google.ar.core.codelab.cloudanchor.helpers.SnackbarHelper;
+import com.google.ar.core.codelab.cloudanchor.helpers.StorageManager;
 import com.google.ar.core.codelab.cloudanchor.helpers.TapHelper;
 import com.google.ar.core.codelab.cloudanchor.helpers.TrackingStateHelper;
 import com.google.ar.core.codelab.cloudanchor.rendering.BackgroundRenderer;
@@ -77,6 +79,8 @@ public class CloudAnchorFragment extends Fragment implements GLSurfaceView.Rende
   // Rendering. The Renderers are created here, and initialized when the GL surface is created.
   private GLSurfaceView surfaceView;
 
+  private Button resolveButton;
+
   private boolean installRequested;
 
   private Session session;
@@ -84,6 +88,8 @@ public class CloudAnchorFragment extends Fragment implements GLSurfaceView.Rende
   private DisplayRotationHelper displayRotationHelper;
   private TrackingStateHelper trackingStateHelper;
   private TapHelper tapHelper;
+
+  private final StorageManager storageManager = new StorageManager();
 
   private final BackgroundRenderer backgroundRenderer = new BackgroundRenderer();
   private final ObjectRenderer virtualObject = new ObjectRenderer();
@@ -128,6 +134,9 @@ public class CloudAnchorFragment extends Fragment implements GLSurfaceView.Rende
 
     Button clearButton = rootView.findViewById(R.id.clear_button);
     clearButton.setOnClickListener(v -> onClearButtonPressed());
+
+    resolveButton = rootView.findViewById(R.id.resolve_button);
+    resolveButton.setOnClickListener(v -> onResolveButtonPressed());
 
     return rootView;
   }
@@ -367,6 +376,8 @@ public class CloudAnchorFragment extends Fragment implements GLSurfaceView.Rende
           // in the correct position relative both to the world and to the plane.
           currentAnchor = hit.createAnchor();
 
+          getActivity().runOnUiThread(() -> resolveButton.setEnabled(false));
+
           messageSnackbarHelper.showMessage(getActivity(), "Now hosting anchor...");
           future = session.hostCloudAnchorAsync(currentAnchor, 300, this::onHostComplete);
           break;
@@ -399,13 +410,53 @@ public class CloudAnchorFragment extends Fragment implements GLSurfaceView.Rende
       future.cancel();
       future = null;
     }
+
+    resolveButton.setEnabled(true);
   }
 
   private void onHostComplete(String cloudAnchorId, Anchor.CloudAnchorState cloudState) {
     if (cloudState == Anchor.CloudAnchorState.SUCCESS) {
-      messageSnackbarHelper.showMessage(getActivity(), "Cloud Anchor Hosted. ID: " + cloudAnchorId);
+      int shortCode = storageManager.nextShortCode(getActivity());
+      storageManager.storeUsingShortCode(getActivity(), shortCode, cloudAnchorId);
+      messageSnackbarHelper.showMessage(
+              getActivity(), "Cloud Anchor Hosted. Short code: " + shortCode);
+
     } else {
       messageSnackbarHelper.showMessage(getActivity(), "Error while hosting: " + cloudState.toString());
+    }
+  }
+
+  private void onResolveButtonPressed() {
+    ResolveDialogFragment dialog = ResolveDialogFragment.createWithOkListener(
+            this::onShortCodeEntered);
+    dialog.show(getActivity().getSupportFragmentManager(), "Resolve");
+  }
+
+  private void onShortCodeEntered(int shortCode) {
+    String cloudAnchorId = storageManager.getCloudAnchorId(getActivity(), shortCode);
+    if (cloudAnchorId == null || cloudAnchorId.isEmpty()) {
+      messageSnackbarHelper.showMessage(
+              getActivity(),
+              "A Cloud Anchor ID for the short code " + shortCode + " was not found.");
+      return;
+    }
+    resolveButton.setEnabled(false);
+    future = session.resolveCloudAnchorAsync(
+            cloudAnchorId, (anchor, cloudState) -> onResolveComplete(anchor, cloudState, shortCode));
+  }
+
+  private void onResolveComplete(Anchor anchor, Anchor.CloudAnchorState cloudState, int shortCode) {
+    if (cloudState == Anchor.CloudAnchorState.SUCCESS) {
+      messageSnackbarHelper.showMessage(getActivity(), "Cloud Anchor Resolved. Short code: " + shortCode);
+      currentAnchor = anchor;
+    } else {
+      messageSnackbarHelper.showMessage(
+              getActivity(),
+              "Error while resolving anchor with short code "
+                      + shortCode
+                      + ". Error: "
+                      + cloudState.toString());
+      resolveButton.setEnabled(true);
     }
   }
 
