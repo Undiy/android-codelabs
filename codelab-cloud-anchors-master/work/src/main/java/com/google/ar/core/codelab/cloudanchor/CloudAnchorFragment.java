@@ -31,9 +31,11 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import com.google.ar.core.Anchor;
+import com.google.ar.core.Anchor.CloudAnchorState;
 import com.google.ar.core.ArCoreApk;
 import com.google.ar.core.Camera;
 import com.google.ar.core.Config;
+import com.google.ar.core.Config.CloudAnchorMode;
 import com.google.ar.core.Frame;
 import com.google.ar.core.Future;
 import com.google.ar.core.HitResult;
@@ -45,9 +47,9 @@ import com.google.ar.core.Session;
 import com.google.ar.core.Trackable;
 import com.google.ar.core.TrackingState;
 import com.google.ar.core.codelab.cloudanchor.helpers.CameraPermissionHelper;
+import com.google.ar.core.codelab.cloudanchor.helpers.FirebaseManager;
 import com.google.ar.core.codelab.cloudanchor.helpers.ResolveDialogFragment;
 import com.google.ar.core.codelab.cloudanchor.helpers.SnackbarHelper;
-import com.google.ar.core.codelab.cloudanchor.helpers.StorageManager;
 import com.google.ar.core.codelab.cloudanchor.helpers.TapHelper;
 import com.google.ar.core.codelab.cloudanchor.helpers.TrackingStateHelper;
 import com.google.ar.core.codelab.cloudanchor.rendering.BackgroundRenderer;
@@ -89,7 +91,7 @@ public class CloudAnchorFragment extends Fragment implements GLSurfaceView.Rende
   private TrackingStateHelper trackingStateHelper;
   private TapHelper tapHelper;
 
-  private final StorageManager storageManager = new StorageManager();
+  private FirebaseManager firebaseManager;
 
   private final BackgroundRenderer backgroundRenderer = new BackgroundRenderer();
   private final ObjectRenderer virtualObject = new ObjectRenderer();
@@ -113,6 +115,7 @@ public class CloudAnchorFragment extends Fragment implements GLSurfaceView.Rende
     super.onAttach(context);
     tapHelper = new TapHelper(context);
     trackingStateHelper = new TrackingStateHelper(requireActivity());
+    firebaseManager = new FirebaseManager(context);
   }
 
   @Override
@@ -169,7 +172,7 @@ public class CloudAnchorFragment extends Fragment implements GLSurfaceView.Rende
 
         // Configure the session.
         Config config = new Config(session);
-        config.setCloudAnchorMode(Config.CloudAnchorMode.ENABLED);
+        config.setCloudAnchorMode(CloudAnchorMode.ENABLED);
         session.configure(config);
 
 
@@ -414,13 +417,18 @@ public class CloudAnchorFragment extends Fragment implements GLSurfaceView.Rende
     resolveButton.setEnabled(true);
   }
 
-  private void onHostComplete(String cloudAnchorId, Anchor.CloudAnchorState cloudState) {
-    if (cloudState == Anchor.CloudAnchorState.SUCCESS) {
-      int shortCode = storageManager.nextShortCode(getActivity());
-      storageManager.storeUsingShortCode(getActivity(), shortCode, cloudAnchorId);
-      messageSnackbarHelper.showMessage(
-              getActivity(), "Cloud Anchor Hosted. Short code: " + shortCode);
-
+  private void onHostComplete(String cloudAnchorId, CloudAnchorState cloudState) {
+    if (cloudState == CloudAnchorState.SUCCESS) {
+      firebaseManager.nextShortCode(shortCode -> {
+        if (shortCode != null) {
+          firebaseManager.storeUsingShortCode(shortCode, cloudAnchorId);
+          messageSnackbarHelper.showMessage(getActivity(), "Cloud Anchor Hosted. Short code: " + shortCode);
+        } else {
+          // Firebase could not provide a short code.
+          messageSnackbarHelper.showMessage(getActivity(), "Cloud Anchor Hosted, but could not "
+                  + "get a short code from Firebase.");
+        }
+      });
     } else {
       messageSnackbarHelper.showMessage(getActivity(), "Error while hosting: " + cloudState.toString());
     }
@@ -433,20 +441,21 @@ public class CloudAnchorFragment extends Fragment implements GLSurfaceView.Rende
   }
 
   private void onShortCodeEntered(int shortCode) {
-    String cloudAnchorId = storageManager.getCloudAnchorId(getActivity(), shortCode);
-    if (cloudAnchorId == null || cloudAnchorId.isEmpty()) {
-      messageSnackbarHelper.showMessage(
-              getActivity(),
-              "A Cloud Anchor ID for the short code " + shortCode + " was not found.");
-      return;
-    }
-    resolveButton.setEnabled(false);
-    future = session.resolveCloudAnchorAsync(
-            cloudAnchorId, (anchor, cloudState) -> onResolveComplete(anchor, cloudState, shortCode));
+    firebaseManager.getCloudAnchorId(shortCode, cloudAnchorId -> {
+      if (cloudAnchorId == null || cloudAnchorId.isEmpty()) {
+        messageSnackbarHelper.showMessage(
+                getActivity(),
+                "A Cloud Anchor ID for the short code " + shortCode + " was not found.");
+        return;
+      }
+      resolveButton.setEnabled(false);
+      future = session.resolveCloudAnchorAsync(
+              cloudAnchorId, (anchor, cloudState) -> onResolveComplete(anchor, cloudState, shortCode));
+    });
   }
 
-  private void onResolveComplete(Anchor anchor, Anchor.CloudAnchorState cloudState, int shortCode) {
-    if (cloudState == Anchor.CloudAnchorState.SUCCESS) {
+  private void onResolveComplete(Anchor anchor, CloudAnchorState cloudState, int shortCode) {
+    if (cloudState == CloudAnchorState.SUCCESS) {
       messageSnackbarHelper.showMessage(getActivity(), "Cloud Anchor Resolved. Short code: " + shortCode);
       currentAnchor = anchor;
     } else {

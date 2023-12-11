@@ -1,4 +1,5 @@
 apply plugin: 'com.android.application'
+apply plugin: 'com.google.gms.google-services'
 
 android {
     compileSdkVersion 29
@@ -29,4 +30,5 @@ dependencies {
     implementation project(":helpers")
     implementation 'androidx.appcompat:appcompat:1.2.0'
     implementation 'com.google.android.gms:play-services-auth:16+'
+    implementation 'com.google.firebase:firebase-database:20.3.0'
 }
