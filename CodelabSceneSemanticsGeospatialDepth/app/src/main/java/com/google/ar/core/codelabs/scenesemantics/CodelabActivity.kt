@@ -85,7 +85,11 @@ class CodelabActivity : AppCompatActivity() {
   // Configure the session, setting the desired options according to your usecase.
   fun configureSession(session: Session) {
     session.configure(session.config.apply {
-      // TODO: Enable the Scene Semantics API.
+      // Enable the Scene Semantics API.
+      if (session.isSemanticModeSupported(Config.SemanticMode.ENABLED)) {
+        semanticMode = Config.SemanticMode.ENABLED
+      }
+
 
 
 
